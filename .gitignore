@@ -1,0 +1,76 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# OS
+Thumbs.db
+
+# Sensitive / private data
+data/raw/
+notes/research/
+# Screenshots: the _inbox is a scratch drop zone; filed screenshots are
+# committed evidence (see _archive/design-record.md §5.4) — a screenshot of a moment
+# cannot be re-acquired, unlike a research PDF.
+notes/screenshots/_inbox/
+# data/market/holdings_inbox/ is NO LONGER ignored (his call, 2026-10-06).
+# The old reason — "the file is only the delivery and can be downloaded
+# again any time" — is false twice over, and both halves were proven on
+# 2026-10-05/06:
+#
+#   * Each file is a DATED SNAPSHOT. You can download today's holdings; you
+#     cannot download the ones behind a row dated 2026-10-02. Losing the
+#     file loses the provenance of every figure parsed out of it.
+#   * Seven of the nine issuers he holds block automated download entirely,
+#     so "again any time" means him, by hand, on nine websites.
+#
+# And the cost of losing them is not theoretical: a refresh with the files
+# missing sends every fund to a ten-name floor (guarded in
+# fetch_holdings(), but the guard exists because the loss is plausible).
+# 812 KB for the lot. The repo is private; these are the issuers' own
+# published holdings, no account data of his in them.
+*.pdf
+*.xlsx
+*.xls
+.env
+
+# Transient sync backups (e.g., data/positions.csv.bak)
+*.bak
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# `data/screens/` and `notes/alerts/` used to be ignored here. Both are gone
+# (Phase 2e): the screen images were regenerable and were deleted, and the 46
+# daily alert files moved to `_archive/alerts/` and are now COMMITTED — being
+# ignored meant the only record of how close each stop came to firing lived on
+# one laptop with no backup.
+
+# Machine scratch space for planned work: brainstorm mockups, the execution
+# ledger for a plan in flight, and per-commit review diffs. All regenerable,
+# none of it a record Yaron reads.
+.superpowers/
+
+# The built portfolio page: machine output, regenerated in seconds by
+# ops/build_page.py, and it would change on every sync (spec D11).
+ops/portfolio.html

@@ -1,0 +1,2 @@
+transaction_id,action_id,report_date,datetime,symbol,type,description,asset_category,sub_category,currency,quantity,proceeds,value,security_id
+2000000077,9000001,2026-01-15,2026-01-15 20:15:00,TSM,FS,TSM(2 for 1 STOCK SPLIT),STK,COMMON,USD,22,0.00,0.00,DEMO013220269

@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FlexQueryResponse queryName="Test Query" type="AF">
+  <FlexStatements count="1">
+    <FlexStatement accountId="UTEST" fromDate="2025-01-01" toDate="2025-12-31" period="LastYear" whenGenerated="2025-12-31;23:59:59">
+      <AccountInformation accountId="UTEST" name="Test Account" currency="USD" />
+      <OpenPositions>
+        <OpenPosition symbol="AAPL" currency="USD" listingExchange="NASDAQ" assetCategory="STK" subCategory="COMMON" position="10" markPrice="200" positionValue="2000" costBasisPrice="150" costBasisMoney="1500" percentOfNAV="20" fxRateToBase="1" multiplier="1" description="Apple Inc" securityID="US0378331005" reportDate="2025-12-31" />
+        <OpenPosition symbol="ASML" currency="EUR" listingExchange="AEB" assetCategory="STK" subCategory="COMMON" position="1" markPrice="700" positionValue="700" costBasisPrice="650" costBasisMoney="650" percentOfNAV="7" fxRateToBase="1.1" multiplier="1" description="ASML Holding NV" securityID="NL0010273215" reportDate="2025-12-31" />
+        <OpenPosition symbol="ASML" currency="USD" listingExchange="NASDAQ" assetCategory="STK" subCategory="COMMON" position="2" markPrice="850" positionValue="1700" costBasisPrice="800" costBasisMoney="1600" percentOfNAV="17" fxRateToBase="1" multiplier="1" description="ASML Holding NV ADR" securityID="N07059210" reportDate="2025-12-31" />
+        <OpenPosition symbol="ZERO" currency="USD" listingExchange="NASDAQ" assetCategory="STK" subCategory="COMMON" position="0" markPrice="0" positionValue="0" costBasisPrice="0" costBasisMoney="0" percentOfNAV="0" fxRateToBase="1" multiplier="1" description="Closed Position" securityID="" reportDate="2025-12-31" />
+      </OpenPositions>
+      <FxPositions>
+        <FxPosition assetCategory="CASH" fxCurrency="USD" functionalCurrency="USD" quantity="1000" closePrice="1" value="1000" costBasis="-1000" unrealizedPL="0" costPrice="0" reportDate="2025-12-31" />
+        <FxPosition assetCategory="CASH" fxCurrency="EUR" functionalCurrency="USD" quantity="100" closePrice="1.1" value="110" costBasis="-105" unrealizedPL="5" costPrice="1.05" reportDate="2025-12-31" />
+        <FxPosition assetCategory="CASH" fxCurrency="DKK" functionalCurrency="USD" quantity="0" closePrice="0.15" value="0" costBasis="0" unrealizedPL="0" costPrice="0" reportDate="2025-12-31" />
+      </FxPositions>
+      <Trades>
+        <Trade assetCategory="STK" quantity="8" ibCommission="-5" proceeds="-1140" />
+        <Trade tradeID="T1" transactionID="X1" symbol="AAPL" description="Apple Inc" currency="USD" listingExchange="NASDAQ" exchange="DARK" assetCategory="STK" subCategory="COMMON" buySell="BUY" quantity="10" tradePrice="150" tradeMoney="1500" ibCommission="-2.5" ibCommissionCurrency="USD" netCash="-1502.5" proceeds="-1500" openCloseIndicator="O" orderType="MKT" transactionType="ExchTrade" fifoPnlRealized="0" mtmPnl="50" multiplier="1" fxRateToBase="1" securityID="US0378331005" tradeDate="2025-06-01" dateTime="2025-06-01;14:30:00" />
+        <Trade tradeID="T2" transactionID="X2" symbol="AAPL" description="Apple Inc" currency="USD" listingExchange="NASDAQ" exchange="DARK" assetCategory="STK" subCategory="COMMON" buySell="SELL" quantity="-2" tradePrice="180" tradeMoney="-360" ibCommission="-2.5" ibCommissionCurrency="USD" netCash="357.5" proceeds="360" openCloseIndicator="C" orderType="MKT" transactionType="ExchTrade" fifoPnlRealized="60" mtmPnl="0" multiplier="1" fxRateToBase="1" securityID="US0378331005" tradeDate="2025-09-01" dateTime="2025-09-01;10:15:00" />
+      </Trades>
+      <CashReport>
+        <CashReportCurrency currency="BASE_SUMMARY" endingCash="1110" endingSettledCash="1110" />
+      </CashReport>
+      <CashTransactions>
+        <CashTransaction transactionID="CT1" dateTime="2025-02-15;09:00:00" reportDate="2025-02-15" type="Dividends" symbol="AAPL" description="APPLE INC DIV" currency="USD" amount="50" fxRateToBase="1" dividendType="Ordinary Dividend" exDate="2025-02-10" securityID="US0378331005" actionID="A1" />
+        <CashTransaction transactionID="CT2" dateTime="2025-02-15;09:00:00" reportDate="2025-02-15" type="Withholding Tax" symbol="AAPL" description="APPLE INC TAX" currency="USD" amount="-7.5" fxRateToBase="1" securityID="US0378331005" actionID="A1" />
+        <CashTransaction transactionID="CT3" dateTime="2025-04-01;00:00:00" reportDate="2025-04-01" type="Deposits/Withdrawals" symbol="" description="ELECTRONIC TRANSFER" currency="USD" amount="1000" fxRateToBase="1" />
+        <CashTransaction transactionID="CT4" dateTime="2025-05-01;00:00:00" reportDate="2025-05-01" type="Broker Interest Paid" symbol="" description="INTEREST" currency="USD" amount="-3" fxRateToBase="1" />
+        <CashTransaction transactionID="" type="" />
+      </CashTransactions>
+      <EquitySummaryInBase>
+        <EquitySummaryByReportDateInBase currency="USD" reportDate="2025-01-01" cash="100" stock="0" options="0" dividendAccruals="0" interestAccruals="0" total="100" />
+        <EquitySummaryByReportDateInBase currency="USD" reportDate="2025-01-02" cash="100" stock="30" options="0" dividendAccruals="0" interestAccruals="0" total="130" />
+        <EquitySummaryByReportDateInBase currency="USD" reportDate="2025-01-03" cash="100" stock="-10" options="0" dividendAccruals="0" interestAccruals="0" total="90" />
+        <EquitySummaryByReportDateInBase currency="USD" reportDate="2025-01-04" cash="100" stock="5" options="0" dividendAccruals="0" interestAccruals="0" total="105" />
+        <EquitySummaryByReportDateInBase currency="USD" reportDate="2025-01-05" cash="100" stock="10" options="0" dividendAccruals="0" interestAccruals="0" total="110" />
+      </EquitySummaryInBase>
+      <HardToBorrowDetails>
+        <HardToBorrowDetail valueDate="2025-03-15" symbol="HTBSTK" description="HARD TO BORROW INC" currency="USD" quantity="10" price="50" value="500" borrowFeeRate="5.5" borrowFee="-0.5" fxRateToBase="1" securityID="X1" />
+        <HardToBorrowDetail valueDate="2025-03-16" symbol="HTBSTK" description="HARD TO BORROW INC" currency="USD" quantity="10" price="51" value="510" borrowFeeRate="5.5" borrowFee="-0.5" fxRateToBase="1" securityID="X1" />
+        <HardToBorrowDetail valueDate="2025-03-15" symbol="" />
+      </HardToBorrowDetails>
+      <CorporateActions>
+        <CorporateAction currency="USD" fxRateToBase="1" assetCategory="STK" subCategory="ETF" symbol="SPLITCO" description="SPLITCO(US1234567890) SPLIT 2 FOR 1 (SPLITCO, SPLIT COMPANY, US1234567890)" dateTime="2025-06-04;20:25:00" actionDescription="SPLITCO(US1234567890) SPLIT 2 FOR 1" quantity="10" transactionID="CA1" securityID="US1234567890" multiplier="1" reportDate="2025-06-05" type="FS" actionID="A100" proceeds="0" value="0" />
+        <CorporateAction currency="USD" fxRateToBase="1" assetCategory="STK" subCategory="COMMON" symbol="MERGECO" description="MERGECO(US9999999999) MERGED" dateTime="2025-07-01;20:25:00" actionDescription="MERGECO MERGED" quantity="-5" transactionID="CA2" securityID="US9999999999" multiplier="1" reportDate="2025-07-02" type="TC" actionID="A200" proceeds="250.5" value="250.5" />
+        <CorporateAction transactionID="" symbol="" />
+      </CorporateActions>
+      <OptionEAE>
+        <OptionEAE />
+        <OptionEAE currency="USD" fxRateToBase="1" assetCategory="OPT" subCategory="C" symbol="XYZ   250620C00050000" description="XYZ 20JUN25 50 C" multiplier="100" strike="50" expiry="2025-06-20" putCall="C" date="2025-06-20" quantity="-2" markPrice="1.5" costBasis="-500" realizedPnl="120" mtmPnl="-300" tradeID="OE1" />
+        <OptionEAE currency="USD" fxRateToBase="1" assetCategory="FUT" symbol="FUTQ5" description="FUT AUG25" multiplier="100" expiry="2025-08-20" date="2025-08-20" quantity="1" tradePrice="70.5" markPrice="70.5" proceeds="-7050" costBasis="7200" realizedPnl="150" tradeID="OE2" />
+      </OptionEAE>
+      <ConversionRates>
+        <ConversionRate reportDate="2025-01-01" fromCurrency="EUR" toCurrency="USD" rate="1.05" />
+        <ConversionRate reportDate="2025-01-02" fromCurrency="EUR" toCurrency="USD" rate="1.06" />
+      </ConversionRates>
+      <SLBActivities>
+        <SLBActivity date="2025-03-15" symbol="HTBSTK" />
+      </SLBActivities>
+    </FlexStatement>
+  </FlexStatements>
+</FlexQueryResponse>

@@ -1,0 +1,41 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      # The venv is not optional. tests/test_pre_commit.py symlinks `venv/`
+      # into a throwaway repo and the commit hook shells out to
+      # `$ROOT/venv/bin/python`; a bare `pip install` makes those tests fail
+      # for a reason that has nothing to do with the code under test.
+      - name: Create the virtual environment
+        run: |
+          python -m venv venv
+          venv/bin/pip install --upgrade pip
+          venv/bin/pip install -r requirements.txt
+
+      - name: Tests
+        run: venv/bin/python -m pytest tests/ -q
+
+      # Proof the demo book is generated rather than asserted: rebuild every
+      # table from the seed script and check it against the same schemas and
+      # foreign keys the commit guard uses.
+      - name: Rebuild the demo book and validate it
+        run: |
+          venv/bin/python ops/seed_demo_book.py
+          venv/bin/python ops/seed_demo_book.py --check
+
+      - name: The page builds
+        run: venv/bin/python ops/build_page.py --no-open

@@ -1,0 +1,1 @@
+trade_id,date,symbol,description,asset_category,sub_category,currency,put_call,strike,expiry,multiplier,quantity,trade_price,mark_price,cost_basis,proceeds,realized_pnl,mtm_pnl,security_id

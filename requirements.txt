@@ -1,0 +1,16 @@
+# Everything here is imported by live code in src/, ops/, tests/ or
+# .claude/skills/. Anything that serves only _archive/ was removed on
+# 2026-09-27 — restoring archived code means restoring its dependency too.
+
+pandas>=2.2
+numpy>=1.26           # pandas needs it; nothing of ours imports it directly
+pandera>=0.32         # every data table's schema
+pytest>=8.0
+
+requests>=2.31        # Alpha Vantage, and the IBKR Flex web service
+ibflex>=0.15          # parses the Flex XML
+python-dotenv>=1.0    # reads .env for the Flex token
+yfinance>=0.2         # ops/refresh_etf_compositions.py, as a fallback provider
+openpyxl>=3.1         # SPDR publishes holdings as .xlsx; ops/refresh_etf_holdings.py reads it
+pdfplumber>=0.11      # .claude/skills/evidence/scripts/find_pages.py
+markdown-it-py>=4.2   # ops/build_page.py renders a note's Markdown for the in-page pop-up

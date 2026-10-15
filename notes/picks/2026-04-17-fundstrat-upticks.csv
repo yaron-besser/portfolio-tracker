@@ -1,0 +1,26 @@
+ticker,name,sector,price,support_near,support_far,resistance_near,resistance_far,date_added,price_when_added,return_since_pct,return_relative_to_spy_pct,status
+AMZN,Amazon.com,Consumer Discretionary,253.67,236,229,259,321,2024-01-29,161.26,57.3,12.5,existing
+BABA,Alibaba Group Holding,Consumer Discretionary,141.42,134,118,150,180,2025-08-13,126.86,11.5,1.1,existing
+TSLA,Tesla,Consumer Discretionary,401.98,375,337,437,470,2024-03-20,175.66,128.8,92.3,existing
+BG,Bunge Global,Consumer Staples,119.28,116,111,132,167,2026-03-06,116.67,2.2,-3.6,existing
+WMT,Walmart,Consumer Staples,126.29,121,116,130,135,2025-07-25,97.47,29.6,17.9,existing
+ETHA,iShares Ethereum Trust ETF,Crypto ETF,18.43,16,13,19,20,2025-09-18,34.73,-46.9,-54.5,existing
+AXP,American Express,Financials,335.58,290,256,343,387,2026-03-06,301.00,11.5,5.6,existing
+BRK/B,Berkshire Hathaway,Financials,477.70,464,455,487,515,2024-01-29,383.18,24.7,-20.1,existing
+MTB,M&T Bank,Financials,219.02,208,195,239,266,2026-01-22,217.46,0.7,-2.5,existing
+AMGN,Amgen,Health Care,355.77,344,335,370,391,2026-01-22,347.07,2.5,-0.7,existing
+GILD,Gilead Sciences,Health Care,137.78,133,129,145,157,2026-01-22,131.14,5.1,1.9,existing
+MRK,Merck,Health Care,118.09,113,110,125,134,2026-03-06,115.79,2.0,-3.9,existing
+CRS,Carpenter Technology,Industrials,441.44,401,351,478,526,2024-11-22,190.97,131.2,111.6,existing
+CSX,CSX Corp,Industrials,43.46,41,38,49,57,2025-12-17,36.50,19.1,12.9,improved
+GEV,GE Vernova,Industrials,1001.86,946,904,1104,1159,2025-12-17,614.19,63.1,57.0,existing
+JCI,Johnson Controls International,Industrials,141.29,135,126,146,160,2024-09-30,77.61,82.0,58.2,existing
+PH,Parker-Hannifin,Industrials,994.79,951,919,1035,1172,2025-10-30,774.35,28.5,23.9,existing
+PWR,Quanta Services,Industrials,599.93,574,560,621,682,2025-10-30,453.83,32.2,27.6,existing
+QXO,QXO Inc,Industrials,25.01,22,20.3,26,27.5,2026-03-06,21.80,14.7,8.8,existing
+TT,Trane Technologies,Industrials,478.67,441,403,524,590,2025-07-25,472.07,1.4,-10.3,improved
+CLS,Celestica,Information Technology,393.78,351,309,431,545,2025-07-25,170.22,131.3,119.7,existing
+CRWV,CoreWeave,Information Technology,118.09,104,99,139,187,2026-04-17,118.09,,,new
+DELL,Dell Technologies,Information Technology,196.51,168,155,211,266,2026-04-17,196.51,,,new
+ORCL,Oracle,Information Technology,176.15,159,135,171,214,2026-03-20,129.24,36.3,-0.3,existing
+VST,Vistra,Utilities,164.04,156,142,179,189,2024-05-24,102.10,60.7,26.2,existing

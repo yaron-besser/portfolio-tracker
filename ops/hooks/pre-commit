@@ -1,0 +1,471 @@
+#!/bin/sh
+# Commit guard — the enforcement point that binds the REPOSITORY, not the
+# chat session (_archive/design-record.md §5.7). Blocks invalid claims and misnamed or
+# oversized screenshots from ever reaching history, from any tool.
+#
+# Install (once per clone):
+#   ln -sf ../../ops/hooks/pre-commit .git/hooks/pre-commit
+#
+# Every rejection names the problem and the fix (P2).
+
+set -e
+ROOT="$(git rev-parse --show-toplevel)"
+FAIL=0
+
+# ── 0. Work belongs on a branch, never on main ──
+# Bound at the repository layer so it holds for any tool, not just Claude
+# (_archive/design-record.md §5.7). Mirrors the GitHub ruleset on origin/main.
+BRANCH="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo '')"
+if [ "$BRANCH" = "main" ]; then
+    echo "Refusing to commit directly to main."
+    echo "  Work goes on a branch, then a PR Yaron merges (docs/github-workflow.md)."
+    echo "  Start one with:  git checkout -b <name>"
+    echo "  Deliberate exception:  git commit --no-verify"
+    FAIL=1
+fi
+
+# ── 1. If any data table is staged, the STAGED version must validate ──
+# Every table is covered: the three curated ones by schema + foreign key, the
+# four the sync owns by the append-only rule (_archive/design-record.md §5.7).
+if git diff --cached --name-only |
+   grep -qE '^data/(claims|claim_setups|commentary|evidence_links|evidence_summaries|evidence|clusters|instruments|levels|positions|sectors|transactions|cash_transactions|borrow_fees|nav_history|corporate_actions|option_events|market/etf_compositions|market/etf_holdings)\.csv$'; then
+    if ! "$ROOT/venv/bin/python" - <<'EOF'
+import io
+import subprocess
+import sys
+sys.path.insert(0, ".")
+from pathlib import Path
+import pandas as pd
+from src import (claims, clusters, commentary, evidence, exposure, ibkr_sync,
+                 instruments, levels, market, sectors)
+
+
+def _read(ref: str, blanks_as_text: bool = True) -> pd.DataFrame:
+    """A CSV as of a git ref (':path' = the staged copy). Empty if absent.
+
+    Always read RAW: a HEAD copy was written under whatever schema was current
+    then, and holding it to today's would make any column addition permanently
+    uncommittable.
+
+    `blanks_as_text` keeps an empty cell as '' — right for the broker tables,
+    where the check is "did this text change". The claim store needs the
+    opposite: `load_claims()` turns a blank price into NaN, so its HEAD copy
+    must read blanks the same way or every blank looks like an edit.
+    """
+    r = subprocess.run(["git", "show", ref], capture_output=True, text=True)
+    if r.returncode != 0 or not r.stdout.strip():
+        return pd.DataFrame()
+    return pd.read_csv(
+        io.StringIO(r.stdout), dtype=str, keep_default_na=not blanks_as_text
+    )
+
+
+def _staged(rel: str, tmp_name: str) -> Path | None:
+    """One staged file written to a temp path, or None if not in the index.
+
+    `git show :path` reads the INDEX — what a commit would actually record —
+    which for an unmodified tracked file is HEAD's copy. Reading the working
+    tree instead means a typo staged, fixed in the editor and committed
+    without re-adding passes the guard and lands in history anyway.
+    """
+    got = subprocess.run(["git", "show", f":{rel}"],
+                         capture_output=True, text=True)
+    if got.returncode != 0 or not got.stdout.strip():
+        return None
+    tmp = Path(f".git/{tmp_name}")
+    tmp.write_text(got.stdout)
+    return tmp
+
+
+EMPTY = Path(".git/_absent.csv")
+
+
+def _staged_or_empty(rel: str, tmp_name: str, scratch: list) -> Path:
+    """The staged copy, or a path that does not exist (an empty store)."""
+    got = _staged(rel, tmp_name)
+    if got is not None:
+        scratch.append(got)
+        return got
+    return EMPTY
+
+
+scratch: list[Path] = []
+try:
+    # Every reference table below is read from the INDEX, never the working
+    # tree. The hook's contract is that what gets COMMITTED must validate, and
+    # half these checks used to read from disk — so a typo staged, corrected in
+    # the editor and committed without re-adding sailed through and landed in
+    # history anyway. Fixed 2026-09-27; the same bug had already been found and
+    # fixed for check 1a alone (see its comment below).
+    inst_p = _staged_or_empty("data/instruments.csv", "_inst_staged.csv", scratch)
+    cl_p = _staged_or_empty("data/clusters.csv", "_clusters_staged.csv", scratch)
+    sec_p = _staged_or_empty("data/sectors.csv", "_sectors_staged.csv", scratch)
+    comp_p = _staged_or_empty("data/market/etf_compositions.csv", "_comp_staged.csv",
+                              scratch)
+    hold_p = _staged_or_empty("data/market/etf_holdings.csv", "_holdings_staged.csv",
+                              scratch)
+    pos_p = _staged_or_empty("data/positions.csv", "_pos_staged.csv", scratch)
+    tx_p = _staged_or_empty("data/transactions.csv", "_tx_staged.csv", scratch)
+    claims_p = _staged_or_empty("data/claims.csv", "_claims_fk.csv", scratch)
+
+    # 1. the two reference tables, and the link between them: every
+    #    instrument's cluster must name a cluster that actually exists.
+    inst = instruments.load(inst_p)
+    cl = clusters.load(cl_p)
+    if not inst.empty and "cluster_id" in inst.columns:
+        clusters.check_known(inst["cluster_id"].dropna(), cl_p)
+
+    # 1a. ...and it must name a cluster, never a group. A group is a
+    #     container: its money is the sum of its children. A holding filed
+    #     straight into one would be counted both ways at once, and no row in
+    #     weights() could be read without first knowing which. Checked here
+    #     rather than in clusters.validate() because it needs both tables.
+    #
+    #     Read the STAGED copies, per this block's contract at the top. The
+    #     first version read the working tree, so staging a bad row and then
+    #     fixing the file without re-adding committed the bad row while the
+    #     guard inspected the good one — the same false pass the evidence
+    #     guard had on 2026-08-16 (found by review, same day).
+    staged_inst = _read(":data/instruments.csv")
+    staged_cl = _read(":data/clusters.csv")
+    check_inst = staged_inst if not staged_inst.empty else inst
+    check_cl = staged_cl if not staged_cl.empty else cl
+    if (not check_inst.empty and not check_cl.empty
+            and "cluster_id" in check_inst.columns
+            and "layer" in check_cl.columns):
+        groups = set(check_cl.loc[check_cl["layer"] == "group", "cluster_id"])
+        stray = sorted(set(
+            check_inst.loc[check_inst["cluster_id"].isin(groups), "instrument_id"]
+        ))
+        if stray:
+            raise ValueError(
+                f"{stray} are filed directly into a group. A holding must "
+                f"name one of the clusters inside the group, not the group "
+                f"itself."
+            )
+
+    # 1b. ETF compositions: weights must sum to 1.0 per ETF, and every
+    #     ticker must be a known instrument. A partial breakdown silently
+    #     under-reports every sector it leaves out.
+    comp = exposure.load(comp_p)
+    if not comp.empty:
+        instruments.check_known(comp["ticker"].unique(), inst_p)
+
+    # 1b-bis. ETF holdings: which companies each fund owns, company by
+    #     company. Schema first — duplicate holding, weight and coverage
+    #     range, as_of present, and as_of_kind naming which of the two kinds
+    #     of date that is — via the same load-the-staged-copy pattern as 1b
+    #     above, so a bad row is refused at commit, not discovered later.
+    hold = market.load_holdings(hold_p)
+    #     Then the one foreign key this table has: `ticker` is the FUND, and
+    #     must be a known instrument. `holding` deliberately is NOT — those
+    #     are the companies inside the fund, almost none of which he owns
+    #     directly, and requiring a row for each would mean a refresh could
+    #     not be committed until hundreds of instruments were invented.
+    if not hold.empty:
+        instruments.check_known(hold["ticker"].unique(), inst_p)
+
+    # 1c. One sector vocabulary for both tables. They used to carry free text
+    #     independently — 37 labels in one, 13 in the other, 7 shared — so a
+    #     typo could quietly become label 44 and land nowhere.
+    sectors.load(sec_p)
+    sectors.check_known(comp["sector"], sec_p)
+    if not inst.empty:
+        sectors.check_known(inst["sector"].dropna(), sec_p)
+        #     `provider_sector` is a sector label too, and spec D13 makes it
+        #     the page's sector authority — yet until now only his own
+        #     `sector` was keyed, so a vendor label could be anything at all.
+        #     Conditional on the date because the column holds two
+        #     vocabularies; `dated_provider_sectors()` says which rows are
+        #     speaking which, and why.
+        sectors.check_known(instruments.dated_provider_sectors(inst), sec_p)
+
+    # 2. the claim store, and that history was not rewritten
+    staged = subprocess.run(["git", "show", ":data/claims.csv"],
+                            capture_output=True, text=True)
+    if staged.returncode == 0 and staged.stdout.strip():
+        tmp = Path(".git/_claims_staged.csv")
+        tmp.write_text(staged.stdout)
+        try:
+            new = claims.load_claims(tmp)
+        finally:
+            tmp.unlink(missing_ok=True)
+        claims.check_append_only(
+            _read("HEAD:data/claims.csv", blanks_as_text=False), new
+        )
+        # 3. foreign key — `instrument_id` is the link; `ticker` is the
+        #    historical broker name the user typed and is NOT constrained.
+        if "instrument_id" in new.columns:
+            instruments.check_known(new["instrument_id"], inst_p)
+        # every linked trade must be a real one — a bogus link would count
+        # as executed in the follow-through numbers
+        if "trade_ids" in new.columns:
+            for _, row in new.iterrows():
+                # pass the instrument too, or an ASML fill could be linked to
+                # an IWM claim and the guard would wave it through
+                claims.check_trade_ids(row.get("trade_ids"),
+                                       path=tx_p,
+                                       instrument_id=row.get("instrument_id"))
+
+    # 2a. why each claim was taken. A join table, so the only thing that can
+    #     go wrong is a link to a claim that does not exist — which would make
+    #     scoreboard() count a setup against nothing.
+    staged = subprocess.run(["git", "show", ":data/claim_setups.csv"],
+                            capture_output=True, text=True)
+    if staged.returncode == 0 and staged.stdout.strip():
+        tmp = Path(".git/_setups_staged.csv")
+        tmp.write_text(staged.stdout)
+        try:
+            claims.load_setups(tmp)          # schema + vocabulary + no duplicates
+            claims.check_setup_claims(tmp)   # foreign key
+        finally:
+            tmp.unlink(missing_ok=True)
+
+    # 2c. the evidence store. THREE tables now: the documents, the summaries and
+    #     the links. Every staged copy is checked against the other STAGED
+    #     copies, never the working tree, so a link and the thing it names must
+    #     be committed together or not at all.
+    #
+    #     The asymmetry from the two-table version is unchanged and still the
+    #     point: location *shape* is checked here (a storage=private row must
+    #     carry a bare, well-named filename, because a paid PDF's path in a
+    #     committed table cannot be taken back), but whether a repo file still
+    #     *exists* is not — that is stale_documents()' job, which reports rather
+    #     than blocks.
+    # ⚠️ This list is deliberately NOT the outer `scratch`, and the six staged
+    #    copies below are deliberately NOT `inst_p`/`cl_p`/`sec_p`/`claims_p`.
+    #    Its `finally` fires at :278, while checks 2b/3/4/5 go on reading the
+    #    outer copies until :319. Reusing an outer NAME here — the obvious "why
+    #    stage instruments twice?" cleanup — would delete `inst_p` mid-run, and
+    #    `instruments.load()` returns an EMPTY store for a missing path rather
+    #    than raising, so every instrument would read as unknown and levels,
+    #    positions and all four broker tables would be refused for a reason
+    #    that is not true. Until 2026-09-27 this list WAS called `scratch`; it
+    #    shadowed the outer one, so the outer seven were never cleaned at all.
+    ev_scratch: list[Path] = []
+    try:
+        evidence_tmp = _staged("data/evidence.csv", "_evidence_staged.csv")
+        if evidence_tmp:
+            ev_scratch.append(evidence_tmp)
+            evidence.load_evidence(evidence_tmp)   # schema + vocab + one row per doc
+            evidence.check_locations(evidence_tmp, require_file=False)
+
+        summaries_tmp = _staged("data/evidence_summaries.csv",
+                                "_summaries_staged.csv")
+        if summaries_tmp:
+            ev_scratch.append(summaries_tmp)
+            evidence.load_summaries(summaries_tmp)  # schema + one summary per file
+            evidence.check_summaries(
+                summaries_tmp,
+                evidence_path=evidence_tmp or Path(".git/_no_evidence.csv"),
+            )
+            # The location's shape, same asymmetry as the documents above: where
+            # the file must be, never whether it still exists. Without this the
+            # foreign key was the only rule this table had, and a hand-edited
+            # row pointing into gitignored notes/research/ committed cleanly.
+            evidence.check_summary_locations(summaries_tmp)
+
+        links_tmp = _staged("data/evidence_links.csv", "_links_staged.csv")
+        if links_tmp:
+            ev_scratch.append(links_tmp)
+            evidence.load_links(links_tmp)          # schema + the five-part key
+            claims_tmp = _staged("data/claims.csv", "_claims_for_links.csv")
+            if claims_tmp:
+                ev_scratch.append(claims_tmp)
+            # All six target/source kinds get a staged override, not only the
+            # three that also get their own schema check in this section. A
+            # link's OTHER end — cluster, sector, instrument — is real data
+            # too, and without an override here `_load_known()` falls back to
+            # each loader's default path, i.e. the working tree: a link to a
+            # cluster added locally but not staged would validate against
+            # dirty state and pass, and the mirror case (a cluster staged for
+            # deletion, still on disk) would wrongly refuse a valid link. The
+            # cluster/instrument sections above (1/1a) check a DIFFERENT
+            # foreign key — instruments.cluster_id — and never look at this
+            # table, so they cannot catch either case.
+            cluster_tmp = _staged("data/clusters.csv", "_clusters_for_links.csv")
+            if cluster_tmp:
+                ev_scratch.append(cluster_tmp)
+            sector_tmp = _staged("data/sectors.csv", "_sectors_for_links.csv")
+            if sector_tmp:
+                ev_scratch.append(sector_tmp)
+            instrument_tmp = _staged("data/instruments.csv",
+                                     "_instruments_for_links.csv")
+            if instrument_tmp:
+                ev_scratch.append(instrument_tmp)
+            # No fallback to the working tree, for any of the six. `git show
+            # :path` reads the index, which holds every tracked file, so a
+            # normal commit always finds it. Reaching here with no staged copy
+            # means that table left the index while links stayed — exactly
+            # the state to refuse — and an absent path reads as an empty
+            # store, so every link dangles.
+            evidence.check_links(links_tmp, paths={
+                "claim":      claims_tmp     or Path(".git/_no_claims.csv"),
+                "document":   evidence_tmp   or Path(".git/_no_evidence.csv"),
+                "summary":    summaries_tmp  or Path(".git/_no_summaries.csv"),
+                "cluster":    cluster_tmp    or Path(".git/_no_clusters.csv"),
+                "sector":     sector_tmp     or Path(".git/_no_sectors.csv"),
+                "instrument": instrument_tmp or Path(".git/_no_instruments.csv"),
+            })
+    finally:
+        for tmp in ev_scratch:
+            tmp.unlink(missing_ok=True)
+
+    # 2a-bis. thoughts and commentary. Schema, both vocabularies, the two
+    #     cross-checks (a thought is his, commentary is someone else's) and the
+    #     polymorphic target — but deliberately NO append-only check. This is
+    #     the one store a row may LEAVE: a comment is disposable, which is the
+    #     whole reason it is not in claims.csv. forget() is the sanctioned
+    #     path and git keeps the previous version.
+    cm_staged = subprocess.run(["git", "show", ":data/commentary.csv"],
+                               capture_output=True, text=True)
+    if cm_staged.returncode == 0 and cm_staged.stdout.strip():
+        # Its OWN name. Never an outer one — see the note at :211.
+        cm_tmp = Path(".git/_commentary_staged.csv")
+        cm_tmp.write_text(cm_staged.stdout)
+        scratch.append(cm_tmp)
+        new_cm = commentary.load(cm_tmp)      # schema + vocab + cross-checks
+        if not new_cm.empty:
+            for _, r in new_cm.iterrows():
+                # What it is about must exist. Checked against the STAGED
+                # reference tables, so a cluster added in this same commit
+                # counts.
+                commentary.check_target(
+                    r["target_type"], r["target_id"],
+                    paths={"claim": claims_p, "cluster": cl_p,
+                           "sector": sec_p, "instrument": inst_p})
+            # A thought that became a bet must name a bet that exists.
+            promoted = new_cm["promoted_to"].dropna()
+            if len(promoted):
+                known_claims = set(claims.load_claims(claims_p)["id"])
+                for cell in promoted:
+                    text = str(cell).strip()
+                    if text and text not in known_claims:
+                        raise ValueError(
+                            f"promoted_to {text!r} is not a claim that exists. "
+                            f"A thought may only be promoted to a real bet.")
+
+    # 2b. the level store. Same shape as the claim store: schema, append-only,
+    #     foreign keys. NOT checked here: whether the instrument is still held.
+    #     That is a write-time rule only — enforcing it at commit would mean
+    #     selling a position blocks every later commit (_archive/design-record.md §5.8).
+    staged = subprocess.run(["git", "show", ":data/levels.csv"],
+                            capture_output=True, text=True)
+    if staged.returncode == 0 and staged.stdout.strip():
+        tmp = Path(".git/_levels_staged.csv")
+        tmp.write_text(staged.stdout)
+        try:
+            new = levels.load_levels(tmp)
+        finally:
+            tmp.unlink(missing_ok=True)
+        levels.check_append_only(
+            _read("HEAD:data/levels.csv", blanks_as_text=False), new
+        )
+        if "instrument_id" in new.columns:
+            instruments.check_known(new["instrument_id"], inst_p)
+        # a level pointing at a claim that does not exist would break the join
+        # between what he planned and what he set himself to watch
+        if "claim_id" in new.columns:
+            for cell in new["claim_id"].dropna():
+                levels.check_claim_id(cell, claims_p)
+
+    if pos_p.exists():
+        col = pd.read_csv(pos_p, dtype=str).get("instrument_id")
+        if col is not None:
+            instruments.check_known(col.dropna(), inst_p)
+
+    # 4. the four broker tables: rows may be added, never changed or removed
+    for rel, key in ibkr_sync.BROKER_TABLES.items():
+        new = _read(f":{rel}")
+        if new.empty:
+            continue
+        ibkr_sync.check_broker_table(_read(f"HEAD:{rel}"), new, key, rel)
+        # 5. foreign key — every traded symbol must name a known instrument
+        if "symbol" in new.columns:
+            syms = [s for s in new["symbol"].unique() if str(s).strip()]
+            instruments.check_known({instruments.resolve(s) for s in syms},
+                                    inst_p)
+except Exception as e:
+    print(f"Data check failed — commit blocked:\n{claims.explain_schema_error(e)}")
+    sys.exit(1)
+finally:
+    for tmp in scratch:
+        tmp.unlink(missing_ok=True)
+EOF
+    then
+        FAIL=1
+    fi
+fi
+
+# ── 2. Staged notes must have their required headings ──
+# Only STAGED notes are checked. Holding the 19 existing notes to today's
+# shape would block every commit until all of them were rewritten — the same
+# trap that would have made check_append_only() reject its own migration.
+STAGED_NOTES="$(git diff --cached --name-only --diff-filter=AM |
+                grep -E '^notes/(positions|clusters)/[^/]+\.md$' || true)"
+if [ -n "$STAGED_NOTES" ]; then
+    if ! echo "$STAGED_NOTES" | "$ROOT/venv/bin/python" -c '
+import sys
+sys.path.insert(0, ".")
+from src import notes
+paths = [p.strip() for p in sys.stdin if p.strip()]
+try:
+    notes.check_paths(paths)
+except Exception as e:
+    print(f"Note shape — commit blocked:\n{e}")
+    sys.exit(1)
+'
+    then
+        FAIL=1
+    fi
+fi
+
+# ── 3. Staged screenshots: naming pattern + subject vocabulary + size cap ──
+# NUL-separated (-z) so filenames with spaces survive; errors go to a temp
+# file because the read loop runs in a subshell and cannot set FAIL directly.
+SUBJECTS_FILE="$ROOT/ops/vocab/chart_subjects"
+ALLOWED="$(paste -sd, "$SUBJECTS_FILE" | sed 's/,/, /g')"
+ERRS="$(mktemp)"
+git diff --cached --name-only --diff-filter=AM -z |
+tr '\0' '\n' | grep "^notes/screenshots/" | grep -v "^notes/screenshots/_inbox/" |
+while IFS= read -r f; do
+    base="$(basename "$f")"
+
+    # Pattern: YYYY-MM-DD-TICKER-subject[-1d|-1w|-1m].png
+    if ! echo "$base" | grep -qE '^[0-9]{4}-[0-9]{2}-[0-9]{2}-[A-Z0-9_.]+-[a-z0-9-]+\.png$'; then
+        {
+            echo "Bad screenshot name: $base"
+            echo "  Required: YYYY-MM-DD-TICKER-subject.png  (e.g. 2026-08-08-NVDA-price-1w.png)"
+            echo "  A dot in the ticker is fine: 2026-09-26-005930.KS-price-1d.png"
+        } >> "$ERRS"
+        continue
+    fi
+
+    # Subject must be in the vocabulary (optional -1d/-1w/-1m suffix allowed)
+    rest="$(echo "$base" | sed -E 's/^[0-9]{4}-[0-9]{2}-[0-9]{2}-[A-Z0-9_.]+-//; s/\.png$//')"
+    core="$(echo "$rest" | sed -E 's/-(1d|1w|1m)$//')"
+    if ! grep -qx "$core" "$SUBJECTS_FILE"; then
+        {
+            echo "Unknown chart subject '$core' in $base."
+            echo "  Allowed: $ALLOWED"
+            echo "  Add it with:  echo $core >> ops/vocab/chart_subjects"
+        } >> "$ERRS"
+    fi
+
+    # Size cap: git never forgets a binary (_archive/design-record.md §5.5)
+    size="$(git cat-file -s ":$f" 2>/dev/null || echo 0)"
+    if [ "$size" -gt 512000 ]; then
+        echo "Screenshot over 500 KB: $base ($((size / 1024)) KB) — downscale before committing." >> "$ERRS"
+    fi
+done
+if [ -s "$ERRS" ]; then
+    cat "$ERRS"
+    FAIL=1
+fi
+rm -f "$ERRS"
+
+if [ "$FAIL" -ne 0 ]; then
+    echo ""
+    echo "Commit blocked by ops/hooks/pre-commit. Fix the above and retry."
+    exit 1
+fi
