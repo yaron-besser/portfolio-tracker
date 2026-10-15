@@ -2,7 +2,7 @@
 # Claude Code SessionStart hook — orients a fresh session before it does anything.
 #
 # Two things:
-#   1. where the rebuild is, and the first unfinished item (REBUILD.md)
+#   1. where the rebuild is, if this copy has a plan (REBUILD.md is optional)
 #   2. anything traded in the last week that no claim explains
 #
 # (2) is Yaron's ask, 2026-08-15: "you do the synchronisation and you see
@@ -19,22 +19,38 @@
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
 [ -n "$ROOT" ] || exit 0
 
-OUT="Active rebuild plan (REBUILD.md):"
+# Appends a block, keeping the blank line between blocks but not starting
+# the message with one when an earlier block was skipped.
+append() {
+    [ -n "$1" ] || return 0
+    if [ -z "$OUT" ]; then OUT="$1"; else OUT="$OUT
+
+$1"; fi
+}
+
+# The rebuild plan is OPTIONAL. The header and the "read it before acting"
+# line used to print whether or not the file was there, so a copy of this
+# project without one — the public copy has none — opened every session by
+# pointing it at a file that does not exist. Saying nothing is better than
+# sending a session somewhere that is not there.
+OUT=""
 if [ -f "$ROOT/REBUILD.md" ]; then
+    PLAN="Active rebuild plan (REBUILD.md):"
     STATUS="$(grep -m1 '^\*\*Status:' "$ROOT/REBUILD.md")"
-    # The first unchecked box in the FILE is not the next task — Phase 2b's
-    # "write the constitution" sits above the active phase and says in its own
-    # text not to pick it up. Start reading at the heading marked "(active".
+    # The first unchecked box in the FILE is not the next task — a phase above
+    # the active one can say in its own text not to pick it up. Start reading
+    # at the heading marked "(active".
     NEXT="$(sed -n '/^### Phase .*(active/,$p' "$ROOT/REBUILD.md" | grep -m1 '^- \[ \]')"
     [ -n "$NEXT" ] || NEXT="$(grep -m1 '^- \[ \]' "$ROOT/REBUILD.md")"
-    [ -n "$STATUS" ] && OUT="$OUT
+    [ -n "$STATUS" ] && PLAN="$PLAN
 $STATUS"
-    [ -n "$NEXT" ] && OUT="$OUT
+    [ -n "$NEXT" ] && PLAN="$PLAN
 Next unchecked: $NEXT"
-fi
-OUT="$OUT
+    PLAN="$PLAN
 
 Read REBUILD.md before acting; follow the working rules in §8."
+    append "$PLAN"
+fi
 
 # Unexplained trades. Loud on failure — a silent all-clear here would defeat
 # the whole point (P2).
@@ -57,13 +73,9 @@ except Exception as e:
     print(f"⚠ could not check for unexplained trades — {type(e).__name__}: {e}")
 EOF
 )"
-    [ -n "$GAPS" ] && OUT="$OUT
-
-$GAPS"
+    append "$GAPS"
 else
-    OUT="$OUT
-
-⚠ could not check for unexplained trades — venv/bin/python is missing."
+    append "⚠ could not check for unexplained trades — venv/bin/python is missing."
 fi
 
 printf '%s' "$OUT" | jq -Rs '{hookSpecificOutput:{hookEventName:"SessionStart",additionalContext:.}}'
