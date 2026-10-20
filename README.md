@@ -2,11 +2,11 @@
 
 [![tests](https://github.com/yaron-besser/portfolio-tracker/actions/workflows/tests.yml/badge.svg)](https://github.com/yaron-besser/portfolio-tracker/actions/workflows/tests.yml)
 
-**[→ Open the portfolio page](https://yaron-besser.github.io/portfolio-tracker/)** —
+**[→ Open the portfolio page](https://yaron-besser.github.io/portfolio-tracker/)** -
 the real thing, built by this repository from the demo book in it. No install.
 
 A personal investment record that stores the *reasoning* behind a portfolio,
-not just its contents — and then refuses to let that record go quietly wrong.
+not just its contents, and then refuses to let that record go quietly wrong.
 
 A broker already tells you what you own. Nothing tells you what you were
 thinking three months ago, whether you did what you wrote down, or whether the
@@ -26,7 +26,7 @@ thing; the portfolio in it is invented.
 | The code, schemas, guards and tests | **Real**, and they run against the data in this repository |
 | Fund sector breakdowns and holdings | **Real** — each issuer's own published file, with its own `as_of` date |
 | The research write-ups in `notes/picks/` | **Real** notes on real third-party reports |
-| **The book** — positions, trades, account value, bets, price levels, journal | **Generated** by [`ops/seed_demo_book.py`](ops/seed_demo_book.py). There is no real portfolio behind it |
+| **The book** - positions, trades, account value, bets, price levels, journal | **Generated** by [`ops/seed_demo_book.py`](ops/seed_demo_book.py). There is no real portfolio behind it |
 
 The demo book is reproducible rather than asserted. Delete every table the
 generator owns, run it again, and you get the same book back byte for byte:
